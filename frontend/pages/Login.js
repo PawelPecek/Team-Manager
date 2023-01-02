@@ -25,8 +25,9 @@ const Login = ({navigation}) => {
             method: "POST",
             body: JSON.stringify(form)
         })
-        .then(response => response.json())
+        .then(response => response.text())
         .then(data =>{
+            console.log(data);
             if (data.status == "ok") {
                 const db = new Datastore({ filename: 'user', storage: AsyncStorage, autoload: true });
                 db.remove({}, { multi: true }, ()=>{
