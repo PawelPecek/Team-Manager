@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { View, Text, StyleSheet, TouchableWithoutFeedback, ScrollView, SectionList } from 'react-native'
 import Datastore from 'react-native-local-mongodb'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import NetInfo from '@react-native-community/netinfo'
 import { useIsFocused } from '@react-navigation/native'
 import CONFIG from '../components/Config'
 import ReturnArrowIco from '../svg/ReturnArrowIco'
@@ -77,6 +78,16 @@ const FormMeczRemoveUser = ({ route, navigation }) => {
     });
   }
   useEffect(()=>{
+    NetInfo.addEventListener((state) => {
+        if (isFocused) {
+            const offline = !state.isConnected;
+            if (offline) {
+                setError("Brak internetu");
+            } else {
+                setError(false);
+            }
+        }
+    });
     const db = new Datastore({ filename: 'user', storage: AsyncStorage, autoload: true });
     db.find({}, (err, docs) =>{
         fetch(CONFIG.HOST_ADRES + "game/get", {

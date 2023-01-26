@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { View, Text, StyleSheet, FlatList, TouchableWithoutFeedback } from 'react-native'
 import Datastore from 'react-native-local-mongodb'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import NetInfo from '@react-native-community/netinfo'
 import { useIsFocused } from '@react-navigation/native'
 import CONFIG from '../components/Config'
 import SearchIco from '../svg/SearchIco'
@@ -12,18 +13,18 @@ import PopUpServer from '../components/PopUpServer'
 
 /*
     Lista wszystkich miejsc, gdzie jest infinite scroll do wstawienia:
-    1. Tablica
+    1. Tablica (X)
     2. Wiadomości
-    3. Konto
-    4. UserList
-    5. FormWiadomosci
+    3. Chat
+    4. Konto
+    5. UserList
+    6. FormWiadomosci
  */
 
 /*
     Rzeczy przeznaczone do upgradu:
-    - lista musi być jednorazowo dłuższa
-    - dociąganie danych musi być ustawione stosunkowo szybko
-    - jakaś ikonka, że się łąduje, dla scrolujących jak pojebani
+    - taki sam mechanizm podziału zwracanych list i dociągania
+    - komunikat, że się ładuje, dla scrolujących jak pojebani
 */
 
 const Tablica = ({route, navigation}) => {
@@ -34,12 +35,26 @@ const Tablica = ({route, navigation}) => {
         return "";
     })();
     const [meczState, setMeczState] = useState([]);
+    const [isLoading, setLoading] = useState(false);
     const [error, setError] = useState(false);
+    const listRef = useRef(null);
     const isFocused = useIsFocused();
     useEffect(()=>{
+        console.log("Tablica - UseEffect");
+        NetInfo.addEventListener((state) => {
+            if (isFocused) {
+                const offline = !state.isConnected;
+                if (offline) {
+                    setError("Brak internetu");
+                } else {
+                    setError(false);
+                }
+            }
+        });
         const db = new Datastore({ filename: 'user', storage: AsyncStorage, autoload: true });
         db.find({}, (err, docs) =>{
-            if (isFocused) {
+            if (isFocused && (error === false)) {
+                listRef.current.scrollToOffset({ offset: 0, animated: false });
                 fetch(CONFIG.HOST_ADRES + "game/list", {
                     headers: {
                         'Accept': 'application/json',
@@ -49,7 +64,7 @@ const Tablica = ({route, navigation}) => {
                     body: JSON.stringify({
                         login: docs[0].login,
                         password: docs[0].password,
-                        pageSize: 5,
+                        pageSize: 25,
                         pageNumber: 1,
                         searchString: searchString
                     })
@@ -81,6 +96,7 @@ const Tablica = ({route, navigation}) => {
         navigation.navigate("FormMecz", { source: "Tablica", target: "create" });
     }
     const loadMore = ()=>{
+        setLoading(true);
         const db = new Datastore({ filename: 'user', storage: AsyncStorage, autoload: true });
         db.find({}, (err, docs) =>{
             if (isFocused) {
@@ -93,13 +109,14 @@ const Tablica = ({route, navigation}) => {
                     body: JSON.stringify({
                         login: docs[0].login,
                         password: docs[0].password,
-                        pageSize: 5,
-                        pageNumber: (Math.ceil(meczState.length / 5) + 1),
+                        pageSize: 25,
+                        pageNumber: (Math.ceil(meczState.length / 25) + 1),
                         searchString: searchString
                     })
                 })
                 .then(response => response.json())
                 .then(data =>{
+                    setLoading(false);
                     if (data.status == "ok") {
                         setMeczState(data.data);
                     } else {
@@ -136,6 +153,7 @@ const Tablica = ({route, navigation}) => {
                 </TouchableWithoutFeedback>
             </View>
             <FlatList style={style.scrollView}
+                ref={listRef}
                 data={meczState}
                 keyExtractor={(item) => item.id}
                 renderItem={
@@ -155,11 +173,17 @@ const Tablica = ({route, navigation}) => {
                         target=""
                         />
                 }
-                onEndReachedThreshold={1}
+                onEndReachedThreshold={5}
                 onEndReached={loadMore}
             />
             {
-                (error != "") && <PopUpServer message={error} closeHandler={()=>{setError("");}} />
+                isLoading &&
+                <View style={style.dataLoadingContainer}>
+                    <Text style={style.dataLoadingText}>Ładowanie danych</Text>
+                </View>
+            }
+            {
+                (error != "") && <PopUpServer message={error} closeHandler={()=>{setError(false);}} />
             }
             <BottomBar navigation={navigation} activeOption="Tablica" />
         </View>
@@ -190,6 +214,14 @@ const style = StyleSheet.create({
     searchStringText: {
         color: "white",
         fontSize: 25
+    },
+    dataLoadingContainer: {
+        marginBottom: 20
+    },
+    dataLoadingText: {
+        color: "white",
+        fontSize: 15,
+        textDecorationLine: "underline"
     }
 });
 

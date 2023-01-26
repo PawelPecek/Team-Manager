@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { View, Text, StyleSheet, FlatList, TouchableWithoutFeedback } from 'react-native'
 import Datastore from 'react-native-local-mongodb'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import NetInfo from '@react-native-community/netinfo'
 import { useIsFocused } from '@react-navigation/native'
 import CONFIG from '../components/Config'
 import SearchIco from '../svg/SearchIco'
@@ -16,13 +17,19 @@ const Wiadomosci = ({ route, navigation }) => {
         searchString: '',
         data: []
     });
-    const [error, setError] = useState(false);
+    const [error, setError] = useState(false)
+    const listRef = useRef(null)
+    const [isLoading, setLoading] = useState(false)
     const isFocused = useIsFocused();
-    const setUser = ()=>{
-        if (list.label == 'group') {
+
+// funkcja do ładowania danych - START
+    const dataLoader = target=>{
+        if (target != list.label) {
+            const searchString = (('searchString' in route.params) && (typeof(route.params.searchString) != 'undefined')) ? route.params.searchString : '';
             const db = new Datastore({ filename: 'user', storage: AsyncStorage, autoload: true });
             db.find({}, (err, docs) =>{
-                fetch(CONFIG.HOST_ADRES + "user/list", {
+                const url = (target == 'user') ? CONFIG.HOST_ADRES + "user/list" : CONFIG.HOST_ADRES + "group/list";
+                fetch(url, {
                     headers: {
                         'Accept': 'application/json',
                         'Content-Type': 'application/json'
@@ -31,15 +38,17 @@ const Wiadomosci = ({ route, navigation }) => {
                     body: JSON.stringify({
                         login: docs[0].login,
                         password: docs[0].password,
-                        searchString: ""
+                        pageSize: 25,
+                        pageNumber: 1,
+                        searchString: searchString
                     })
                 })
                 .then(response => response.json())
                 .then(data =>{
                     if (data.status == "ok") {
                         setList({
-                            label: 'user',
-                            searchString: '',
+                            label: target,
+                            searchString: searchString,
                             data: data.data
                         });
                     } else {
@@ -54,47 +63,59 @@ const Wiadomosci = ({ route, navigation }) => {
                     setError("Błąd w połączeniu, spróbuj ponownie");
                     console.log(err);
                 });
-            })
+            });
+        } else {
+            setLoading(true);
+            const searchString = (('searchString' in route.params) && (typeof(route.params.searchString) != 'undefined')) ? route.params.searchString : '';
+            const db = new Datastore({ filename: 'user', storage: AsyncStorage, autoload: true });
+            db.find({}, (err, docs) =>{
+                const url = (target == 'user') ? CONFIG.HOST_ADRES + "user/list" : CONFIG.HOST_ADRES + "group/list";
+                fetch(url, {
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    },
+                    method: "POST",
+                    body: JSON.stringify({
+                        login: docs[0].login,
+                        password: docs[0].password,
+                        pageSize: 25,
+                        pageNumber: (Math.ceil(list.data.length / 25) + 1),
+                        searchString: searchString
+                    })
+                })
+                .then(response => response.json())
+                .then(data =>{
+                    setLoading(false);
+                    if (data.status == "ok") {
+                        setList({
+                            label: target,
+                            searchString: searchString,
+                            data: data.data
+                        });
+                    } else {
+                        if (data.description != undefined) {
+                            setError(data.description);
+                        } else {
+                            setError("Błąd po stronie serwera, spróbuj ponownie");
+                            console.log(data);
+                        }
+                    }
+                }).catch(err =>{
+                    setLoading(false);
+                    setError("Błąd w połączeniu, spróbuj ponownie");
+                    console.log(err);
+                });
+            });
         }
+    }
+// funkcja do ładowania danych - KONIEC
+
+    const setUser = ()=>{
+        if (list.label == 'group') dataLoader('user');
     };
     const setGroup = ()=>{
-        if (list.label == 'user') {
-            const db = new Datastore({ filename: 'user', storage: AsyncStorage, autoload: true });
-            db.find({}, (err, docs) =>{
-                fetch(CONFIG.HOST_ADRES + "group/list", {
-                    headers: {
-                        'Accept': 'application/json',
-                        'Content-Type': 'application/json'
-                    },
-                    method: "POST",
-                    body: JSON.stringify({
-                        login: docs[0].login,
-                        password: docs[0].password,
-                        searchString: ""
-                    })
-                })
-                .then(response => response.json())
-                .then(data =>{
-                    if (data.status == "ok") {
-                        setList({
-                            label: "group",
-                            searchString: "",
-                            data: data.data
-                        });
-                    } else {
-                        if (data.description != undefined) {
-                            setError(data.description);
-                        } else {
-                            setError("Błąd po stronie serwera, spróbuj ponownie");
-                            console.log(data);
-                        }
-                    }
-                }).catch(err =>{
-                    setError("Błąd w połączeniu, spróbuj ponownie");
-                    console.log(err);
-                });
-            })
-        }
+        if (list.label == 'user') dataLoader('group');
     };
     const searchAction = ()=>{
         if (list.label == "user") {
@@ -106,44 +127,22 @@ const Wiadomosci = ({ route, navigation }) => {
     const addAction = ()=>{
         navigation.navigate("FormGroup", { createOrModify: 'create' });
     };
+    const loadMore = ()=>{dataLoader(list.label);}
     useEffect(()=>{
-        const searchString = (('searchString' in route.params) && (typeof(route.params.searchString) != 'undefined')) ? route.params.searchString : '';
-        const db = new Datastore({ filename: 'user', storage: AsyncStorage, autoload: true });
-        db.find({}, (err, docs) =>{
-            const url = (route.params.target == 'user') ? CONFIG.HOST_ADRES + "user/list" : CONFIG.HOST_ADRES + "group/list";
-            fetch(url, {
-                headers: {
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json'
-                },
-                method: "POST",
-                body: JSON.stringify({
-                    login: docs[0].login,
-                    password: docs[0].password,
-                    searchString: searchString
-                })
-            })
-            .then(response => response.json())
-            .then(data =>{
-                if (data.status == "ok") {
-                    setList({
-                        label: route.params.target,
-                        searchString: searchString,
-                        data: data.data
-                    });
+        NetInfo.addEventListener(state => {
+            if (isFocused) {
+                const offline = !state.isConnected;
+                if (offline) {
+                    setError("Brak internetu");
                 } else {
-                    if (data.description != undefined) {
-                        setError(data.description);
-                    } else {
-                        setError("Błąd po stronie serwera, spróbuj ponownie");
-                        console.log(data);
-                    }
+                    setError(false);
                 }
-            }).catch(err =>{
-                setError("Błąd w połączeniu, spróbuj ponownie");
-                console.log(err);
-            });
+            }
         });
+        if (isFocused && (error === false)) {
+            listRef.current.scrollToOffset({ offset: 0, animated: false });
+            dataLoader(route.params.target);
+        }
     }, [isFocused]);
     return (
         <View style={style.main}>
@@ -179,7 +178,9 @@ const Wiadomosci = ({ route, navigation }) => {
                     <View style={style.searchStringContainer}><Text style={style.text}>{list.searchString}</Text></View>
             }
             <FlatList style={style.list}
+                ref={listRef}
                 data={list.data}
+                keyExtractor={(item) => item.id}
                 renderItem={({item})=>{
                     if (list.label == 'user') {
                         return <ItemWiadomosci id={item.id} name={item.login} avatar={item.avatar} navigation={navigation} target="user" searchString={route.params.searchString} />
@@ -187,7 +188,15 @@ const Wiadomosci = ({ route, navigation }) => {
                         return <ItemWiadomosci id={item.id} name={item.name} avatar="" navigation={navigation} target="group" searchString={route.params.searchString} />
                     }
                 }}
+                onEndReachedThreshold={5}
+                onEndReached={loadMore}
             />
+            {
+                isLoading &&
+                    <View style={style.dataLoadingContainer}>
+                        <Text style={style.dataLoadingText}>Ładowanie danych</Text>
+                    </View>
+            }
             {/*
             <ScrollView style={style.list}>
                 {
@@ -201,7 +210,7 @@ const Wiadomosci = ({ route, navigation }) => {
             </ScrollView>
             */}
             {
-                (error != "") && <PopUpServer message={error} closeHandler={()=>{setError("");}} />
+                (error != "") && <PopUpServer message={error} closeHandler={()=>{setError(false);}} />
             }
             <BottomBar navigation={navigation} activeOption="Wiadomosci"/>
         </View>
@@ -269,6 +278,14 @@ const style = StyleSheet.create({
     },
     invisible: {
         opacity: 0
+    },
+    dataLoadingContainer: {
+        marginBottom: 20
+    },
+    dataLoadingText: {
+        color: "white",
+        fontSize: 15,
+        textDecorationLine: "underline"
     }
 });
 

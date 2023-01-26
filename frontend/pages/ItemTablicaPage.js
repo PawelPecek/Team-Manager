@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { View, ScrollView, Text, TouchableWithoutFeedback, StyleSheet } from 'react-native'
 import Datastore from 'react-native-local-mongodb'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import NetInfo from '@react-native-community/netinfo'
 import { useIsFocused } from '@react-navigation/native'
 import CONFIG from '../components/Config'
 import AddIco from '../svg/AddIco'
@@ -24,6 +25,16 @@ const ItemTablicaPage = ({ route, navigation }) => {
     const [error, setError] = useState(false);
     const isFocused = useIsFocused();
     useEffect(()=>{
+        NetInfo.addEventListener((state) => {
+            if (isFocused) {
+                const offline = !state.isConnected;
+                if (offline) {
+                    setError("Brak internetu");
+                } else {
+                    setError(false);
+                }
+            }
+        });
         const db = new Datastore({ filename: 'user', storage: AsyncStorage, autoload: true });
         db.find({}, (err, docs) =>{
             if (isFocused) {
@@ -78,8 +89,8 @@ const ItemTablicaPage = ({ route, navigation }) => {
             case 'Tablica':
                 navigation.navigate('Tablica');
             break;
-            case 'Konto':
-                navigation.navigate('Konto', { target: route.params.target, searchString: '' });
+            case 'SelectList':
+                navigation.navigate('SelectList', { source: ((route.params.target === 'joined') ? 'KontoJoined' : 'KontoCreated') });
             break;
         }
     }

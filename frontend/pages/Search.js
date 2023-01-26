@@ -1,12 +1,16 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Text, TextInput, View, StyleSheet, TouchableWithoutFeedback, ScrollView } from 'react-native'
+import NetInfo from '@react-native-community/netinfo'
+import { useIsFocused } from '@react-navigation/native'
 import ReturnArrowIco from '../svg/ReturnArrowIco'
 import SearchIco from '../svg/SearchIco'
 
 const Search = ({ route, navigation })=>{
     const [searchString, setSearchString] = useState("");
+    const [error, setError] = useState(false);
     const changeText = text => { setSearchString(text) }
     const search = ()=>{
+        if (searchString === '') returnAction();
         switch (route.params.source) {
             case "Tablica":
                 navigation.navigate("Tablica", {searchString: searchString});
@@ -17,6 +21,14 @@ const Search = ({ route, navigation })=>{
             case "WiadomościGroup":
                 navigation.navigate("Wiadomosci", {target: "group", searchString: searchString});
             break;
+            // nowy kod
+            case 'SelectListFormGroup':
+                navigation.navigate('SelectList', {id: route.params.id, createOrModify: route.params.createOrModify, source: route.params.originSource, searchString: searchString});
+            break;
+            case 'SelectListKonto':
+                navigation.navigate('SelectList', {source: route.params.originSource, searchString: searchString});
+            break;
+            /*
             case "KontoJoined":
                 navigation.navigate("Konto", {target: "joined", searchString: searchString});
             break;
@@ -30,6 +42,7 @@ const Search = ({ route, navigation })=>{
                     navigation.navigate("UserList", {id: route.params.id});
                 }
             break;
+            */
         }
     }
     const returnAction = ()=>{
@@ -43,6 +56,14 @@ const Search = ({ route, navigation })=>{
             case "WiadomościGroup":
                 navigation.navigate("Wiadomosci", {target: "group", searchString: ""});
             break;
+            // nowy kod
+            case 'SelectListFormGroup':
+                navigation.navigate('SelectList', {id: route.params.id, name: route.params.name, createOrModify: route.params.createOrModify, source: route.params.originSource});
+            break;
+            case 'SelectListKonto':
+                navigation.navigate('SelectList', {source: route.params.originSource});
+            break;
+            /*
             case "KontoJoined":
                 navigation.navigate("Konto", {target: "joined", searchString: ""});
             break;
@@ -52,8 +73,23 @@ const Search = ({ route, navigation })=>{
             case "UserList":
                 navigation.navigate("UserList", {id: route.params.id})
             break;
+            */
         }
     }
+    const isFocused = useIsFocused();
+    useEffect(()=>{
+        NetInfo.addEventListener((state) => {
+            if (isFocused) {
+                const offline = !state.isConnected;
+                if (offline) {
+                    setError("Brak internetu");
+                } else {
+                    setError(false);
+                }
+            }
+        });
+    }, [isFocused]);
+
     return (
         <View style={style.main}>
             <View style={style.topBar}>

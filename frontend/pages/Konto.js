@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
-import { View, Text, Image, StyleSheet, ScrollView, TouchableWithoutFeedback } from 'react-native'
+import { View, Text, Image, StyleSheet, ScrollView, TouchableWithoutFeedback, FlatList } from 'react-native'
 import Datastore from 'react-native-local-mongodb'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import NetInfo from '@react-native-community/netinfo'
 import { useIsFocused } from '@react-navigation/native'
 import DocumentPicker from 'react-native-document-picker'
 import CONFIG from '../components/Config'
@@ -15,22 +16,9 @@ import Avatar from '../img/avatar.png'
 const Konto = ({ route, navigation }) =>{
     const [list, setList] = useState({
         login: '',
-        avatar: '',
-        searchString: '',
-        tab: '',
-        data: []
+        avatar: ''
     });
-    const [error, setError] = useState(false);
-    const searchAction = ()=>{
-        if (list.tab == "Dołączone") {
-            navigation.navigate("Search", { source: "KontoJoined" });
-        } else {
-            navigation.navigate("Search", { source: "KontoCreated" });
-        }
-    }
-    const addAction = ()=>{
-        navigation.navigate("FormMecz", { source: "Konto", target: "create"});
-    }
+    const [error, setError] = useState(false)
     const changeAvatar = ()=>{
         DocumentPicker.pickSingle({
             type: [DocumentPicker.types.images]
@@ -138,7 +126,10 @@ const Konto = ({ route, navigation }) =>{
     const logout = ()=>{
         navigation.navigate("FormLogout");
     }
-    const setDolaczoneTab = searchString =>{
+    const openDolaczonePage = ()=>{
+        navigation.navigate("SelectList", { source: "KontoJoined" });
+        /*
+        if (list.tab === "Dołączone") setLoading(true);
         const db = new Datastore({ filename: 'user', storage: AsyncStorage, autoload: true });
         db.find({}, (err, docs) =>{
             fetch(CONFIG.HOST_ADRES + "game/users/join/list", {
@@ -150,6 +141,8 @@ const Konto = ({ route, navigation }) =>{
                 body: JSON.stringify({
                     login: docs[0].login,
                     password: docs[0].password,
+                    pageSize: 25,
+                    pageNumber: (list.tab == "Dołączone") ? (Math.ceil(list.data.length / 25) + 1) : 1,
                     searchString: searchString
                 })
             })
@@ -184,6 +177,7 @@ const Konto = ({ route, navigation }) =>{
                             })
                             .then(response => response.json())
                             .then(userAvatar =>{
+                                if (list.tab === "Dołączone") setLoading(false);
                                 if (userAvatar.status == "ok") {
                                     setList({
                                         login: docs[0].login,
@@ -229,8 +223,11 @@ const Konto = ({ route, navigation }) =>{
                 console.log(err);
             });
         });
-    }
-    const setStworzoneTab = searchString =>{
+    */}
+    const openStworzonePage = ()=>{
+        navigation.navigate("SelectList", { source: "KontoCreated" });
+        /*
+        if (list.tab === "Stworzone") setLoading(true);
         const db = new Datastore({ filename: 'user', storage: AsyncStorage, autoload: true });
         db.find({}, (err, docs) =>{
             fetch(CONFIG.HOST_ADRES + "game/users/create/list", {
@@ -242,6 +239,8 @@ const Konto = ({ route, navigation }) =>{
                 body: JSON.stringify({
                     login: docs[0].login,
                     password: docs[0].password,
+                    pageSize: 25,
+                    pageNumber: (list.tab == "Stworzone") ? (Math.ceil(list.data.length / 25) + 1) : 1,
                     searchString: searchString
                 })
             })
@@ -276,6 +275,7 @@ const Konto = ({ route, navigation }) =>{
                             })
                             .then(response => response.json())
                             .then(userAvatar =>{
+                                if (list.tab === "Stworzone") setLoading(false);
                                 if (userAvatar.status == "ok") {
                                     setList({
                                         login: docs[0].login,
@@ -321,137 +321,175 @@ const Konto = ({ route, navigation }) =>{
                 console.log(err);
             });
         });
-    }
+    */}
     const isFocused = useIsFocused();
     useEffect(()=>{
-        if (isFocused) {
-            const searchString = ('searchString' in route.params) ? route.params.searchString : "";
-            if ('target' in route.params) {
-                if (route.params.target == 'created') {
-                    setStworzoneTab(searchString);
+        NetInfo.addEventListener((state) => {
+            if (isFocused) {
+                const offline = !state.isConnected;
+                if (offline) {
+                    setError("Brak internetu");
                 } else {
-                    setDolaczoneTab(searchString);
+                    setError(false);
                 }
-            } else {
-                setDolaczoneTab(searchString);
             }
-        }
+        });
+        const db = new Datastore({ filename: 'user', storage: AsyncStorage, autoload: true });
+        db.find({}, (err, docs) =>{
+            fetch(CONFIG.HOST_ADRES + "user/check", {
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                },
+                method: "POST",
+                body: JSON.stringify({
+                    login: docs[0].login,
+                    password: docs[0].password
+                })
+            })
+            .then(response => response.json())
+            .then(userId =>{
+                if (userId.status == "ok") {
+                    fetch(CONFIG.HOST_ADRES + "user/avatar", {
+                        headers: {
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json'
+                        },
+                        method: "POST",
+                        body: JSON.stringify({
+                            login: docs[0].login,
+                            password: docs[0].password,
+                            id: userId.data
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(userAvatar =>{
+                        if (list.tab === "Stworzone") setLoading(false);
+                        if (userAvatar.status == "ok") {
+                            setList({
+                                login: docs[0].login,
+                                avatar: userAvatar.data
+                            });
+                        } else {
+                            if (userAvatar.description != undefined) {
+                                setError(userAvatar.description);
+                            } else {
+                                setError("Błąd po stronie serwera, spróbuj ponownie");
+                                console.log(userAvatar);
+                            }
+                        }
+                    }).catch(err =>{
+                        setError("Błąd w połączeniu, spróbuj ponownie");
+                        console.log(err);
+                    });
+                } else {
+                    if (userId.description != undefined) {
+                        setError(userId.description);
+                    } else {
+                        setError("Błąd po stronie serwera, spróbuj ponownie");
+                        console.log(userId);
+                    }
+                }
+            }).catch(err =>{
+                setError("Błąd w połączeniu, spróbuj ponownie");
+                console.log(err);
+            });
+        });
     }, [isFocused]);
     return (
         <View style={style.main}>
-            <View style={style.topBar}>
-                <View>
-                    <TouchableWithoutFeedback onPress={searchAction}>
-                        <View>
-                            <SearchIco />
-                        </View>
-                    </TouchableWithoutFeedback>
-                </View>
-                <View>
-                    <TouchableWithoutFeedback onPress={addAction}>
-                        <View style={(list.tab == "Dołączone") && style.invisible}>
-                            <AddIco />
-                        </View>
-                    </TouchableWithoutFeedback>
-                </View>
-            </View>
             <ScrollView style={style.list}>
-                <View style={style.userConfig}>
-                    <View>
-                        <Text style={style.loginText}>{list.login}</Text>
-                    </View>
-                    <View style={style.center}>
-                        <View style={style.avatarContainer}>
-                            { console.log(list) }
-                            {
-                                (list.avatar == "") &&
-                                    <Image style={style.avatarImage} source={Avatar} />
-                            }
-                            {
-                                (list.avatar != "") &&
-                                    <Image style={style.avatarImage} source={{ uri: CONFIG.HOST_ADRES + list.avatar + '?' + new Date() }} />
-                            }
-                            
-                        </View>
-                    </View>
-                    <View style={style.center}>
-                        <TouchableWithoutFeedback onPress={changeAvatar}>
-                            <View style={style.changeAvatarContainer}>
-                                <Text style={style.changeAvatarText}>Zmień Avatar</Text>
-                            </View>
-                        </TouchableWithoutFeedback>
-                    </View>
-                    <View style={style.center}>
-                        <TouchableWithoutFeedback onPress={changeLogin}>
-                            <View style={style.changeLoginContainer}>
-                                <Text style={style.changeLoginText}>Zmień Login</Text>
-                            </View>
-                        </TouchableWithoutFeedback>
-                    </View>
-                    <View style={style.center}>
-                        <TouchableWithoutFeedback onPress={changePassword}>
-                            <View style={style.changePasswordContainer}>
-                                <Text style={style.changePasswordText}>Zmień Hasło</Text>
-                            </View>
-                        </TouchableWithoutFeedback>
-                    </View>
-                    <View style={style.center}>
-                        <TouchableWithoutFeedback onPress={logout}>
-                            <View style={style.logoutContainer}>
-                                <Text style={style.logoutText}>Wyloguj się</Text>
-                            </View>
-                        </TouchableWithoutFeedback>
-                    </View>
+                <View>
+                    <Text style={style.loginText}>{list.login}</Text>
                 </View>
-                <View style={style.tabRow}>
-                    <TouchableWithoutFeedback onPress={()=>{setDolaczoneTab('')}}>
-                        <View style={(list.tab == "Dołączone") ? style.tabActive : style.tabInactive}>
-                            <Text style={style.text}>Dołączone mecze</Text>
+                <View style={style.avatarContainer}>
+                    {/* console.log(list) */}
+                    {
+                        (list.avatar == "") &&
+                            <Image style={style.avatarImage} source={Avatar} />
+                    }
+                    {
+                        (list.avatar != "") &&
+                            <Image style={style.avatarImage} source={{ uri: CONFIG.HOST_ADRES + list.avatar + '?' + new Date() }} />
+                    }
+                </View>
+                <View style={style.row}>
+                    <TouchableWithoutFeedback onPress={openDolaczonePage}>
+                        <View style={style.container}>
+                            <Text style={style.text}>Dołączone</Text>
+                            <Text style={style.text}>mecze</Text>
                         </View>
                     </TouchableWithoutFeedback>
-                    <TouchableWithoutFeedback onPress={()=>{setStworzoneTab('')}}>
-                        <View style={(list.tab == "Stworzone") ? style.tabActive : style.tabInactive}>
-                            <Text style={style.text}>Stworzone mecze</Text>
+                    <TouchableWithoutFeedback onPress={openStworzonePage}>
+                        <View style={style.container}>
+                            <Text style={style.text}>Stworzone</Text>
+                            <Text style={style.text}>mecze</Text>
                         </View>
                     </TouchableWithoutFeedback>
                 </View>
-                {
-                    (list.searchString != '') && 
-                        <View><Text style={style.textSearchstring}>{list.searchString}</Text></View>
-                }
-                {
-                    (list.tab == "Dołączone") && list.data.map(el => <ItemTablica key={el.id}
-                        id={el.id}
-                        navigation={navigation}
-                        name={el.name}
-                        category={el.category}
-                        advancement={el.advancement}
-                        location={el.location}
-                        time={el.time}
-                        pay={el.pay}
-                        openPosition={el.openPosition}
-                        users={el.users}
-                        source="Konto"
-                        target="joined" />)
-                }
-                {
-                    (list.tab == "Stworzone") && list.data.map(el => <ItemTablica key={el.id}
-                        id={el.id}
-                        navigation={navigation}
-                        name={el.name}
-                        category={el.category}
-                        advancement={el.advancement}
-                        location={el.location}
-                        time={el.time}
-                        pay={el.pay}
-                        openPosition={el.openPosition}
-                        users={el.users}
-                        source="Konto"
-                        target="created" />)
-                }
+                <View style={style.row}>
+                    <TouchableWithoutFeedback onPress={changeLogin}>
+                        <View style={style.container}>
+                            <Text style={style.text}>Zmień</Text>
+                            <Text style={style.text}>Login</Text>
+                        </View>
+                    </TouchableWithoutFeedback>
+                    <TouchableWithoutFeedback onPress={changePassword}>
+                        <View style={style.container}>
+                            <Text style={style.text}>Zmień</Text>
+                            <Text style={style.text}>Hasło</Text>
+                        </View>
+                    </TouchableWithoutFeedback>
+                </View>
+                <View style={style.row}>
+                    <TouchableWithoutFeedback onPress={changeAvatar}>
+                        <View style={style.container}>
+                            <Text style={style.text}>Zmień</Text>
+                            <Text style={style.text}>Avatar</Text>
+                        </View>
+                    </TouchableWithoutFeedback>
+                    <TouchableWithoutFeedback onPress={logout}>
+                        <View style={style.container}>
+                            <Text style={style.text}>Wyloguj</Text>
+                            <Text style={style.text}>się</Text>
+                        </View>
+                    </TouchableWithoutFeedback>
+                </View>
             </ScrollView>
+            {/*
+                <FlatList
+                    data={list.data}
+                    ref={listRef}
+                    keyExtractor={(item) => item.id}
+                    renderItem={
+                        ({item})=>
+                            <ItemTablica
+                            id={item.id}
+                            navigation={navigation}
+                            name={item.name} 
+                            category={item.sport} 
+                            advancement={item.advancement} 
+                            location={item.location} 
+                            time={item.time} 
+                            pay={item.price} 
+                            openPosition={item.people_counter}
+                            users={item.users}
+                            source="Konto"
+                            target=""
+                            />
+                    }
+                    onEndReachedThreshold={5}
+                    onEndReached={()=>{
+                        if (list.tab == "Dołączone") {
+                            setDolaczoneTab();
+                        } else {
+                            setStworzoneTab();
+                        }
+                    }}
+                />
+            */}
             {
-                (error != "") && <PopUpServer message={error} closeHandler={()=>{setError("");}} />
+                (error != "") && <PopUpServer message={error} closeHandler={()=>{setError(false);}} />
             }
             <BottomBar navigation={navigation} activeOption="Konto"/>
         </View>
@@ -466,39 +504,6 @@ const style = StyleSheet.create({
         alignItems: "center",
         backgroundColor: "#1c1c1c"
     },
-    topBar: {
-        width: "100%",
-        flexDirection: "row",
-        justifyContent: "space-between",
-        paddingTop: 15,
-        paddingLeft: 15,
-        paddingRight: 15,
-        height: 65
-    },
-    userConfig: {
-        width: "100%"
-    },
-    tabRow: {
-        width: "100%",
-        flexDirection: "row",
-        justifyContent: "space-around",
-        marginTop: 10,
-        marginBottom: 25
-    },
-    tabActive: {
-        borderColor: "white",
-        borderWidth: 1,
-        borderRadius: 10,
-        padding: 10,
-        opacity: 1
-    },
-    tabInactive: {
-        borderColor: "white",
-        borderWidth: 1,
-        borderRadius: 10,
-        padding: 10,
-        opacity: 0.4
-    },
     list: {
         width: "100%"
     },
@@ -506,37 +511,36 @@ const style = StyleSheet.create({
         color: "white",
         fontSize: 20
     },
-    textSearchstring: {
-        color: "white",
-        fontSize: 35,
-        textAlign: "center",
-        marginBottom: 20
-    },
-    invisible: {
-        opacity: 0
-    },
-    center: {
-        width: "100%",
-        alignItems: "center"
-    },
     loginText: {
         width: "100%",
         textAlign: "center",
         color: "white",
-        fontSize: 25
+        fontSize: 25,
+        marginTop: 10,
+        marginBottom: 10
     },
     avatarContainer: {
-        width: 200,
-        height: 200
+        width: "100%",
+        flexDirection: "row",
+        justifyContent: "center",
+        height: 200,
+        marginBottom: 10
     },
     avatarImage: {
+        margin: "auto",
         width: 200,
         height: 200
     },
-    changeAvatarContainer: {
-        width: 150,
+    row: {
+        width: "100%",
+        flexDirection: "row",
+        justifyContent: "space-evenly"
+    },
+    container: {
+        width: "45%",
         justifyContent: "center",
         alignItems: "center",
+        textAlign: "center",
         borderWidth: 1,
         borderColor: "white",
         borderRadius: 20,
@@ -544,64 +548,7 @@ const style = StyleSheet.create({
         paddingBottom: 10,
         marginTop: 10,
         marginBottom: 10
-    },
-    changeAvatarText: {
-        color: "white"
-    },
-    changeLoginContainer: {
-        width: 150,
-        justifyContent: "center",
-        alignItems: "center",
-        borderWidth: 1,
-        borderColor: "white",
-        borderRadius: 20,
-        paddingTop: 10,
-        paddingBottom: 10,
-        marginTop: 10,
-        marginBottom: 10
-    },
-    changeLoginText: {
-        color: "white"
-    },
-    changePasswordContainer: {
-        width: 150,
-        justifyContent: "center",
-        alignItems: "center",
-        borderWidth: 1,
-        borderColor: "white",
-        borderRadius: 20,
-        paddingTop: 10,
-        paddingBottom: 10,
-        marginTop: 10,
-        marginBottom: 10
-    },
-    changePasswordText: {
-        color: "white"
-    },
-    logoutContainer: {
-        width: 150,
-        justifyContent: "center",
-        alignItems: "center",
-        borderWidth: 1,
-        borderColor: "white",
-        borderRadius: 20,
-        paddingTop: 10,
-        paddingBottom: 10,
-        marginTop: 10,
-        marginBottom: 10
-    },
-    logoutText: {
-        color: "white"
     }
 });
-
-/*
-    1. Obrazy o dużej rozdzielczości się nie ładują
-    2. Jest problem z tym, że aplikacja trzyma te obrazy w cache
-
-    ---
-
-    Zmniejszyć rozmiary obrazów i spróbować je ładować przez base64
-*/
 
 export default Konto

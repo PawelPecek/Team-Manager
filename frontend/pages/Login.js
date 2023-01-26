@@ -2,17 +2,29 @@ import { useState, useEffect } from "react"
 import { View, StyleSheet, TextInput, Text, TouchableWithoutFeedback, TouchableNativeFeedback } from "react-native"
 import Datastore from 'react-native-local-mongodb'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import NetInfo from '@react-native-community/netinfo'
+import { useIsFocused } from '@react-navigation/native'
 import CONFIG from "../components/Config"
 import PopUpServer from "../components/PopUpServer"
 
 const Login = ({navigation}) => {
-    const [error, setError] = useState(false);
-    const form = {
+    const [form, setForm] = useState({
         login: "",
         password: ""
+    });
+    const [error, setError] = useState(false);
+    const loginChange = text =>{
+        setForm({
+            login: text,
+            password: form.password
+        });
     }
-    const loginChange = text =>{ form.login = text }
-    const passwordChange = text =>{ form.password = text }
+    const passwordChange = text =>{
+        setForm({
+            login: form.login,
+            password: text
+        });
+    }
     const register = ()=>{
         navigation.navigate("Register");
     }
@@ -25,7 +37,7 @@ const Login = ({navigation}) => {
             method: "POST",
             body: JSON.stringify(form)
         })
-        .then(response => response.text())
+        .then(response => response.json())
         .then(data =>{
             console.log(data);
             if (data.status == "ok") {
@@ -48,20 +60,35 @@ const Login = ({navigation}) => {
             console.log(err);
         });
     }
+    const isFocused = useIsFocused();
+    useEffect(()=>{
+        NetInfo.addEventListener((state) => {
+            if (isFocused) {
+                const offline = !state.isConnected;
+                if (offline) {
+                    setError("Brak internetu");
+                } else {
+                    setError(false);
+                }
+            }
+        });
+    }, [isFocused]);
 
     return (
         <View style={style.main}>
             <Text style={style.header}>Zaloguj</Text>
-            <TextInput style={style.loginForm} placeholder="Login" placeholderTextColor="white" onChangeText={loginChange}/>
-            <TextInput style={style.passwordForm} placeholder="Hasło" placeholderTextColor="white" onChangeText={passwordChange}/>
+            <TextInput style={style.loginForm} placeholder="Login" placeholderTextColor="white" value={form.login} onChangeText={loginChange}/>
+            <TextInput style={style.passwordForm} placeholder="Hasło" placeholderTextColor="white" value={form.password} onChangeText={passwordChange}/>
             <TouchableWithoutFeedback onPress={login}>
                 <View style={style.registerButtonContainer}>
                     <Text style={style.registerButtonText}>Zaloguj</Text>
                 </View>
             </TouchableWithoutFeedback>
+            <View style={{height : 50, alignItems: "center", width: "90%"}}>
             {
                 (error != "") && <PopUpServer message={error} closeHandler={()=>{setError("");}} />
             }
+            </View>
             <TouchableWithoutFeedback onPress={register}>
                 <View style={style.getAccountNotificationContainer}>
                     <Text style={style.getAccountNotificationText}>Zarejestruj się</Text>

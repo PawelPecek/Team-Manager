@@ -235,14 +235,14 @@ Route::post('/game/list', function (Request $request) {
     $games = [];
     if ($request->input('searchString') == "") {
         $gamesList = Game::orderBy('name', 'ASC')->get()->all();
-        $games = array_slice($gamesList, 0, ($request->input('pageSize') * $request->input('pageNumber'))); // coś się psuje
+        $games = array_slice($gamesList, 0, ($request->input('pageSize') * $request->input('pageNumber')));
         logOut("działa");
         logOut($games);
     } else {
         $gamesList = Game::where('name', 'like', '%' . $request->input('searchString') . '%')
             ->orWhere('sport', 'like', '%' . $request->input('searchString') . '%')
             ->orWhere('location', 'like', '%' . $request->input('searchString') . '%')
-            ->orderBy('name', 'ASC')->get();
+            ->orderBy('name', 'ASC')->get()->all();
         $games = array_slice($gamesList, 0, ($request->input('pageSize') * $request->input('pageNumber')));
     }
     for ($i = 0; $i < count($games); $i++) {
@@ -641,6 +641,30 @@ Route::post('/game/users/create/list', function (Request $request) {
     if (strlen($request->input('searchString')) > 50) {
         return json_encode(["status"=>"error", "description"=>"SearchString must be shorter than 50 chars"]);
     }
+    if (!$request->has('pageSize')) {
+        return json_encode(["status"=>"error", "description"=>"PageSize is required"]);
+    }
+    if (!is_numeric($request->input('pageSize'))) {
+        return json_encode(["status"=>"error", "description"=>"PageSize isn't number"]);
+    }
+    if (!is_int($request->input('pageSize'))) {
+        return json_encode(["status"=>"error", "description"=>"PageSize isn't integer"]);
+    }
+    if ($request->input('pageSize') < 0) {
+        return json_encode(["status"=>"error", "description"=>"PageSize isn't non-negative"]);
+    }
+    if (!$request->has('pageNumber')) {
+        return json_encode(["status"=>"error", "description"=>"PageNumber is required"]);
+    }
+    if (!is_numeric($request->input('pageNumber'))) {
+        return json_encode(["status"=>"error", "description"=>"PageNumber isn't number"]);
+    }
+    if (!is_int($request->input('pageNumber'))) {
+        return json_encode(["status"=>"error", "description"=>"PageNumber isn't integer"]);
+    }
+    if ($request->input('pageNumber') < 0) {
+        return json_encode(["status"=>"error", "description"=>"PageNumber isn't non-negative"]);
+    }
     $userGameRole = UserGameRole::where('user', $user->id)->where('role', 'właściciel')->get();
     $answer = [];
     if ($request->input('searchString') === "") {
@@ -652,15 +676,17 @@ Route::post('/game/users/create/list', function (Request $request) {
                 $user = User::find($users[$j]->user);
                 $logins[$j] = (object) ["id"=>$user->id, "login"=>$user->login];
             }
-            $id = $game->id;
-            $name = $game->name;
-            $category = $game->sport;
-            $advancement = $game->advancement;
-            $location = $game->location;
-            $time = $game->time;
-            $pay = $game->price;
-            $openPosition = $game->people_counter;
-            $answer[$i] = ["id"=>$id, "name"=>$name, "category"=>$category, "advancement"=>$advancement, "location"=>$location, "time"=>$time, "pay"=>$pay, "openPosition"=>$openPosition, "users"=>$logins];
+            $temp = [];
+            $temp["id"] = $game->id;
+            $temp["name"] = $game->name;
+            $temp["sport"] = $game->sport;
+            $temp["advancement"] = $game->advancement;
+            $temp["location"] = $game->location;
+            $temp["time"] = $game->time;
+            $temp["price"] = $game->price;
+            $temp["people_counter"] = $game->people_counter;
+            $temp["users"] = $logins;
+            $answer[$i] = $temp;
         }
     } else {
         for ($i = 0; $i < count($userGameRole); $i++) {
@@ -684,17 +710,20 @@ Route::post('/game/users/create/list', function (Request $request) {
                 $user = User::find($users[$j]->user);
                 $logins[$j] = (object) ["id"=>$user->id, "login"=>$user->login];
             }
-            $id = $game->id;
-            $name = $game->name;
-            $category = $game->sport;
-            $advancement = $game->advancement;
-            $location = $game->location;
-            $time = $game->time;
-            $pay = $game->price;
-            $openPosition = $game->people_counter;
-            $answer[count($answer)] = ["id"=>$id, "name"=>$name, "category"=>$category, "advancement"=>$advancement, "location"=>$location, "time"=>$time, "pay"=>$pay, "openPosition"=>$openPosition, "users"=>$logins];
+            $temp = [];
+            $temp["id"] = $game->id;
+            $temp["name"] = $game->name;
+            $temp["sport"] = $game->sport;
+            $temp["advancement"] = $game->advancement;
+            $temp["location"] = $game->location;
+            $temp["time"] = $game->time;
+            $temp["price"] = $game->price;
+            $temp["people_counter"] = $game->people_counter;
+            $temp["users"] = $logins;
+            $answer[count($answer)] = $temp;
         }
     }
+    $answer = array_slice($answer, 0, ($request->input("pageSize") * $request->input("pageNumber")));
     return json_encode(["status"=>"ok", "data"=>$answer]);
 });
 
@@ -715,6 +744,30 @@ Route::post('/game/users/join/list', function (Request $request) {
     if (strlen($request->input('searchString')) > 50) {
         return json_encode(["status"=>"error", "description"=>"SearchString must be shorter than 50 chars"]);
     }
+    if (!$request->has('pageSize')) {
+        return json_encode(["status"=>"error", "description"=>"PageSize is required"]);
+    }
+    if (!is_numeric($request->input('pageSize'))) {
+        return json_encode(["status"=>"error", "description"=>"PageSize isn't number"]);
+    }
+    if (!is_int($request->input('pageSize'))) {
+        return json_encode(["status"=>"error", "description"=>"PageSize isn't integer"]);
+    }
+    if ($request->input('pageSize') < 0) {
+        return json_encode(["status"=>"error", "description"=>"PageSize isn't non-negative"]);
+    }
+    if (!$request->has('pageNumber')) {
+        return json_encode(["status"=>"error", "description"=>"PageNumber is required"]);
+    }
+    if (!is_numeric($request->input('pageNumber'))) {
+        return json_encode(["status"=>"error", "description"=>"PageNumber isn't number"]);
+    }
+    if (!is_int($request->input('pageNumber'))) {
+        return json_encode(["status"=>"error", "description"=>"PageNumber isn't integer"]);
+    }
+    if ($request->input('pageNumber') < 0) {
+        return json_encode(["status"=>"error", "description"=>"PageNumber isn't non-negative"]);
+    }
     $userGameRole = UserGameRole::where('user', $user->id)->where('role', 'uczestnik')->get();
     $answer = [];
     if ($request->input('searchString') === "") {
@@ -726,15 +779,17 @@ Route::post('/game/users/join/list', function (Request $request) {
                 $user = User::find($users[$j]->user);
                 $logins[$j] = (object) ["id"=>$user->id, "login"=>$user->login];
             }
-            $id = $game->id;
-            $name = $game->name;
-            $category = $game->sport;
-            $advancement = $game->advancement;
-            $location = $game->location;
-            $time = $game->time;
-            $pay = $game->price;
-            $openPosition = $game->people_counter;
-            $answer[$i] = ["id"=>$id, "name"=>$name, "category"=>$category, "advancement"=>$advancement, "location"=>$location, "time"=>$time, "pay"=>$pay, "openPosition"=>$openPosition, "users"=>$logins];
+            $temp = [];
+            $temp["id"] = $game->id;
+            $temp["name"] = $game->name;
+            $temp["sport"] = $game->sport;
+            $temp["advancement"] = $game->advancement;
+            $temp["location"] = $game->location;
+            $temp["time"] = $game->time;
+            $temp["price"] = $game->price;
+            $temp["people_counter"] = $game->people_counter;
+            $temp["users"] = $logins;
+            $answer[$i] = $temp;
         }
     } else {
         for ($i = 0; $i < count($userGameRole); $i++) {
@@ -758,17 +813,20 @@ Route::post('/game/users/join/list', function (Request $request) {
                 $user = User::find($users[$j]->user);
                 $logins[$j] = (object) ["id"=>$user->id, "login"=>$user->login];
             }
-            $id = $game->id;
-            $name = $game->name;
-            $category = $game->sport;
-            $advancement = $game->advancement;
-            $location = $game->location;
-            $time = $game->time;
-            $pay = $game->price;
-            $openPosition = $game->people_counter;
-            $answer[count($answer)] = ["id"=>$id, "name"=>$name, "category"=>$category, "advancement"=>$advancement, "location"=>$location, "time"=>$time, "pay"=>$pay, "openPosition"=>$openPosition, "users"=>$logins];
+            $temp = [];
+            $temp["id"] = $game->id;
+            $temp["name"] = $game->name;
+            $temp["sport"] = $game->sport;
+            $temp["advancement"] = $game->advancement;
+            $temp["location"] = $game->location;
+            $temp["time"] = $game->time;
+            $temp["price"] = $game->price;
+            $temp["people_counter"] = $game->people_counter;
+            $temp["users"] = $logins;
+            $answer[count($answer)] = $temp;
         }
     }
+    $answer = array_slice($answer, 0, ($request->input("pageSize") * $request->input("pageNumber")));
     return json_encode(["status"=>"ok", "data"=>$answer]);
 });
 
@@ -790,19 +848,44 @@ Route::post('/group/list', function (Request $request) {
     if (strlen($request->input('searchString')) > 50) {
         return json_encode(["status"=>"error", "description"=>"SearchString must be shorter than 50 chars"]);
     }
+    if (!$request->has('pageSize')) {
+        return json_encode(["status"=>"error", "description"=>"PageSize is required"]);
+    }
+    if (!is_numeric($request->input('pageSize'))) {
+        return json_encode(["status"=>"error", "description"=>"PageSize isn't number"]);
+    }
+    if (!is_int($request->input('pageSize'))) {
+        return json_encode(["status"=>"error", "description"=>"PageSize isn't integer"]);
+    }
+    if ($request->input('pageSize') < 0) {
+        return json_encode(["status"=>"error", "description"=>"PageSize isn't non-negative"]);
+    }
+    if (!$request->has('pageNumber')) {
+        return json_encode(["status"=>"error", "description"=>"PageNumber is required"]);
+    }
+    if (!is_numeric($request->input('pageNumber'))) {
+        return json_encode(["status"=>"error", "description"=>"PageNumber isn't number"]);
+    }
+    if (!is_int($request->input('pageNumber'))) {
+        return json_encode(["status"=>"error", "description"=>"PageNumber isn't integer"]);
+    }
+    if ($request->input('pageNumber') < 0) {
+        return json_encode(["status"=>"error", "description"=>"PageNumber isn't non-negative"]);
+    }
     $answer = [];
     $group = [];
-    $userGroupRole = UserGroupRole::where('user', $user->id)->get();
+    $userGroupRoleList = UserGroupRole::where('user', $user->id)->get()->all();
+    $userGroupRoleSlice = array_slice($userGroupRoleList, 0, ($request->input('pageSize') * $request->input('pageNumber')));
     if ($request->input('searchString') === "") {
-         for ($i = 0; $i < count($userGroupRole); $i++) {
-            $group[$i] = Group::find($userGroupRole[$i]->group);
-         }
+         for ($i = 0; $i < count($userGroupRoleSlice); $i++) {
+            $group[$i] = Group::find($userGroupRoleSlice[$i]->group);
+        }
     } else {
-        for ($i = 0; $i < count($userGroupRole); $i++) {
-            $temp = Group::find($userGroupRole[$i]->group);
+        for ($i = 0; $i < count($userGroupRoleSlice); $i++) {
+            $temp = Group::find($userGroupRoleSlice[$i]->group);
             if (strpos($temp->name, $request->input('searchString')) === false) break;
             $group[count($group)] = $temp;
-         }
+        }
     }
     for ($i = 0; $i < count($group); $i++) {
         $temp = [];
@@ -810,6 +893,7 @@ Route::post('/group/list', function (Request $request) {
         $temp["name"] = $group[$i]->name;
         $answer[$i] = $temp;
     }
+    usort($answer, fn($a, $b) => strcmp($a["name"], $b["name"]));
     return json_encode(["status"=>"ok", "data"=>$answer]);
 });
 
@@ -1064,13 +1148,42 @@ Route::post('/user/list', function (Request $request) {
     if (strlen($request->input('searchString')) > 50) {
         return json_encode(["status"=>"error", "description"=>"SearchString must be shorter than 50 chars"]);
     }
-    if ($request->input('searchString') === "") {
-        $user = User::all();
-    } else {
-        $user = User::where('login', 'like', '%' . $request->input('searchString') . '%')->get();
+    if (!$request->has('pageSize')) {
+        return json_encode(["status"=>"error", "description"=>"PageSize is required"]);
     }
-    for ($i = 0; $i < count($user); $i++) {    
-        $answer[$i] = ["id"=>$user[$i]->id, "login"=>$user[$i]->login, "avatar"=>((!empty($user[$i]->avatar)) ? $user[$i]->avatar : "")];
+    if (!is_numeric($request->input('pageSize'))) {
+        return json_encode(["status"=>"error", "description"=>"PageSize isn't number"]);
+    }
+    if (!is_int($request->input('pageSize'))) {
+        return json_encode(["status"=>"error", "description"=>"PageSize isn't integer"]);
+    }
+    if ($request->input('pageSize') < 0) {
+        return json_encode(["status"=>"error", "description"=>"PageSize isn't non-negative"]);
+    }
+    if (!$request->has('pageNumber')) {
+        return json_encode(["status"=>"error", "description"=>"PageNumber is required"]);
+    }
+    if (!is_numeric($request->input('pageNumber'))) {
+        return json_encode(["status"=>"error", "description"=>"PageNumber isn't number"]);
+    }
+    if (!is_int($request->input('pageNumber'))) {
+        return json_encode(["status"=>"error", "description"=>"PageNumber isn't integer"]);
+    }
+    if ($request->input('pageNumber') < 0) {
+        return json_encode(["status"=>"error", "description"=>"PageNumber isn't non-negative"]);
+    }
+    $userList = [];
+    $userSlice = [];
+    if ($request->input('searchString') === "") {
+        $userList = User::all()->all();
+        $userSlice = array_slice($userList, 0, ($request->input('pageSize') * $request->input('pageNumber')));
+    } else {
+        $userList = User::where('login', 'like', '%' . $request->input('searchString') . '%')->get()->all();
+        $userSlice = array_slice($userList, 0, ($request->input('pageSize') * $request->input('pageNumber')));
+    }
+    $answer = [];
+    for ($i = 0; $i < count($userSlice); $i++) {    
+        $answer[$i] = ["id"=>$userSlice[$i]->id, "login"=>$userSlice[$i]->login, "avatar"=>((!empty($userSlice[$i]->avatar)) ? $userSlice[$i]->avatar : "")];
     }
     return json_encode(["status"=>"ok", "data"=>$answer]);
 });
@@ -1098,6 +1211,30 @@ Route::post('/message/list', function (Request $request) {
     }
     if (!is_numeric($request->input('target'))) {
         return json_encode(["status"=>"error", "description"=>"Target isn't number"]);
+    }
+    if (!$request->has('pageSize')) {
+        return json_encode(["status"=>"error", "description"=>"PageSize is required"]);
+    }
+    if (!is_numeric($request->input('pageSize'))) {
+        return json_encode(["status"=>"error", "description"=>"PageSize isn't number"]);
+    }
+    if (!is_int($request->input('pageSize'))) {
+        return json_encode(["status"=>"error", "description"=>"PageSize isn't integer"]);
+    }
+    if ($request->input('pageSize') < 0) {
+        return json_encode(["status"=>"error", "description"=>"PageSize isn't non-negative"]);
+    }
+    if (!$request->has('pageNumber')) {
+        return json_encode(["status"=>"error", "description"=>"PageNumber is required"]);
+    }
+    if (!is_numeric($request->input('pageNumber'))) {
+        return json_encode(["status"=>"error", "description"=>"PageNumber isn't number"]);
+    }
+    if (!is_int($request->input('pageNumber'))) {
+        return json_encode(["status"=>"error", "description"=>"PageNumber isn't integer"]);
+    }
+    if ($request->input('pageNumber') < 0) {
+        return json_encode(["status"=>"error", "description"=>"PageNumber isn't non-negative"]);
     }
     if ($type === 'user') {
         $target = User::find($request->input('target'));
@@ -1142,6 +1279,7 @@ Route::post('/message/list', function (Request $request) {
                 }
             }
         }
+        $segregatedAnswer = array_slice($segregatedAnswer, 0, ($request->input('pageSize') * $request->input('pageNumber')));
         return json_encode(["status"=>"ok", "data"=>$segregatedAnswer]);
     }
     if ($type === 'group') {
@@ -1172,6 +1310,7 @@ Route::post('/message/list', function (Request $request) {
                 }
             }
         }
+        $segregatedAnswer = array_slice($segregatedAnswer, 0, ($request->input('pageSize') * $request->input('pageNumber')));
         return json_encode(["status"=>"ok", "data"=>$segregatedAnswer]);
     }
     return json_encode(["status"=>"error", "description"=>"Something gone wrong"]);

@@ -3,6 +3,7 @@ import { ScrollView, View, Text, TouchableWithoutFeedback, StyleSheet, TextInput
 import { useIsFocused } from '@react-navigation/native'
 import Datastore from 'react-native-local-mongodb'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import NetInfo from '@react-native-community/netinfo'
 import CONFIG from "../components/Config"
 import DatePicker, { getFormatedDate } from 'react-native-modern-datepicker'
 import { Slider } from '@miblanchard/react-native-slider'
@@ -86,6 +87,7 @@ const FormMecz = ({ route, navigation }) => {
         }
     }
     const priceChange = text => {
+        if (isNaN(text)) return;
         setGame({
             name: game.name,
             sport: game.sport,
@@ -97,6 +99,7 @@ const FormMecz = ({ route, navigation }) => {
         });
     }
     const people_counterChange = text => {
+        if (isNaN(text)) return;
         setGame({
             name: game.name,
             sport: game.sport,
@@ -108,8 +111,17 @@ const FormMecz = ({ route, navigation }) => {
         });
     }
     const isFocused = useIsFocused();
-
     useEffect(() =>{
+        NetInfo.addEventListener((state) => {
+            if (isFocused) {
+                const offline = !state.isConnected;
+                if (offline) {
+                    setError("Brak internetu");
+                } else {
+                    setError(false);
+                }
+            }
+        });
         if (createOrModify === "modify") {
             const db = new Datastore({ filename: 'user', storage: AsyncStorage, autoload: true });
             db.find({}, (err, docs) =>{
@@ -168,7 +180,7 @@ const FormMecz = ({ route, navigation }) => {
                         password: docs[0].password,
                         name: game.name,
                         sport: game.sport,
-                        advancement: game.advancement,
+                        advancement: parseInt(game.advancement),
                         location: game.location,
                         time: game.time,
                         price: game.price,
@@ -208,7 +220,7 @@ const FormMecz = ({ route, navigation }) => {
                         id: route.params.id,
                         name: game.name,
                         sport: game.sport,
-                        advancement: game.advancement,
+                        advancement: parseInt(game.advancement),
                         location: game.location,
                         time: game.time,
                         price: game.price,
@@ -310,6 +322,11 @@ const FormMecz = ({ route, navigation }) => {
                 <View style={style.formContainer}>
                     <TextInput style={style.formText} keyboardType='numeric' onChangeText={people_counterChange} value={game.people_counter} />
                 </View>
+                <View style={{height:50,alignItems:"center"}}>
+                {
+                    (error != "") && <PopUpServer message={error} closeHandler={()=>{setError("");}} />
+                }
+                </View>
                 <View style={style.center}>
                     <TouchableWithoutFeedback onPress={action}>
                         <View style={style.button}>
@@ -317,9 +334,6 @@ const FormMecz = ({ route, navigation }) => {
                         </View>
                     </TouchableWithoutFeedback>
                 </View>
-                {
-                    (error != "") && <PopUpServer message={error} closeHandler={()=>{setError("");}} />
-                }
             </ScrollView>
         </View>
     )
@@ -353,8 +367,8 @@ const style = StyleSheet.create({
         width: 100,
         height: 50,
         borderRadius: 10,
-        marginTop: 15,
-        marginBottom: 25
+        marginTop: 10,
+        marginBottom: 35
     },
     text: {
         color: "white",

@@ -1,7 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { View, Text, StyleSheet, TouchableWithoutFeedback, TextInput } from 'react-native'
 import Datastore from 'react-native-local-mongodb'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import NetInfo from '@react-native-community/netinfo'
+import { useIsFocused } from '@react-navigation/native'
 import CONFIG from '../components/Config'
 import ReturnArrowIco from '../svg/ReturnArrowIco'
 import PopUpServer from '../components/PopUpServer'
@@ -53,6 +55,20 @@ const FormChangePassword = ({navigation}) => {
     const cancel = ()=>{
         navigation.goBack();
     }
+    const isFocused = useIsFocused();
+    useEffect(()=>{
+        NetInfo.addEventListener((state) => {
+            if (isFocused) {
+                const offline = !state.isConnected;
+                if (offline) {
+                    setError("Brak internetu");
+                } else {
+                    setError(false);
+                }
+            }
+        });
+    }, [isFocused]);
+
     return (
         <View style={style.main}>
             <View style={style.topBar}>

@@ -2,6 +2,8 @@ import { useState, useEffect } from "react"
 import { View, StyleSheet, TextInput, Text, TouchableWithoutFeedback, TouchableNativeFeedback } from "react-native"
 import Datastore from 'react-native-local-mongodb'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import NetInfo from '@react-native-community/netinfo'
+import { useIsFocused } from '@react-navigation/native'
 import CONFIG from "../components/Config"
 import PopUpServer from "../components/PopUpServer"
 
@@ -61,33 +63,45 @@ const Register = ({navigation}) => {
     const login = ()=>{
         navigation.navigate("Login");
     }
-
+    const isFocused = useIsFocused();
     useEffect(()=>{
-        db.find({}, (err, docs) =>{
-            if(docs.length > 0) {
-                fetch(CONFIG.HOST_ADRES + "user/check", {
-                    headers: {
-                        'Accept': 'application/json',
-                        'Content-Type': 'application/json'
-                    },
-                    method: "POST",
-                    body: JSON.stringify(docs[0])
-                })
-                .then(response => response.json())
-                .then(data =>{
-                    if (data.status == "ok") {
-                        navigation.navigate("Tablica");
-                    } else {
-                        setError("Błąd, zaloguj się ponownie");
-                        console.log(data);
-                    }
-                }).catch(err =>{
-                    setError("Błąd w połączeniu, spróbuj ponownie");
-                    console.log(err);
-                });
+        NetInfo.addEventListener((state) => {
+            if (isFocused) {
+                const offline = !state.isConnected;
+                if (offline) {
+                    setError("Brak internetu");
+                } else {
+                    setError(false);
+                }
             }
         });
-    });
+        if (isFocused && (error === false)) {
+            db.find({}, (err, docs) =>{
+                if(docs.length > 0) {
+                    fetch(CONFIG.HOST_ADRES + "user/check", {
+                        headers: {
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json'
+                        },
+                        method: "POST",
+                        body: JSON.stringify(docs[0])
+                    })
+                    .then(response => response.json())
+                    .then(data =>{
+                        if (data.status == "ok") {
+                            navigation.navigate("Tablica");
+                        } else {
+                            setError("Błąd, zaloguj się ponownie");
+                            console.log(data);
+                        }
+                    }).catch(err =>{
+                        setError("Błąd w połączeniu, spróbuj ponownie");
+                        console.log(err);
+                    });
+                }
+            });
+        }
+    }, [isFocused]);
 
     return (
         <View style={style.main}>
@@ -99,9 +113,11 @@ const Register = ({navigation}) => {
                     <Text style={style.registerButtonText}>Zarejestruj</Text>
                 </View>
             </TouchableWithoutFeedback>
+            <View style={{height : 50, alignItems: "center", width: "90%"}}>
             {
-                (error != "")&&<PopUpServer message={error} closeHandler={()=>{setError("");}} />
+                (error != "") && <PopUpServer message={error} closeHandler={()=>{setError("");}} />
             }
+            </View>
             <TouchableWithoutFeedback onPress={login}>
                 <View style={style.getAccountNotificationContainer}>
                     <Text style={style.getAccountNotificationText}>Mam już konto</Text>

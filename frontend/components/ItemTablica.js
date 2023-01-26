@@ -7,12 +7,14 @@ import AddIco from "../svg/AddIco"
 import PopUpServer from './PopUpServer'
 
 const ItemTablica = ({id, navigation, name, category, advancement, location, time, pay, openPosition, users, source, target})=>{
-    const [canJoin, setCanJoin] = useState(false);
+    const [canJoin, setCanJoin] = useState(true);
     const [error, setError] = useState(false);
     const open = ()=>{
+        console.log("open");
         navigation.navigate("ItemTablicaPage", { id: id, source: source, target: target });
     }
     const join = ()=>{
+        console.log("join");
         const db = new Datastore({ filename: 'user', storage: AsyncStorage, autoload: true });
         db.find({}, (err, docs) =>{
             const temp = {
@@ -32,6 +34,7 @@ const ItemTablica = ({id, navigation, name, category, advancement, location, tim
             .then(data =>{
                 if (data.status == "ok") {
                     setCanJoin(false);
+                    navigation.navigate("ItemTablicaPage", { id: id, source: source, target: target });
                 } else {
                     if (data.description != undefined) {
                         setError(data.description);
@@ -45,9 +48,9 @@ const ItemTablica = ({id, navigation, name, category, advancement, location, tim
                 console.log(err);
             });
         });
-        navigation.navigate("ItemTablicaPage", { id });
     }
     useEffect(()=>{
+        console.log("ItemTablica - UseEffect");
         const db = new Datastore({ filename: 'user', storage: AsyncStorage, autoload: true });
         db.find({}, (err, docs) =>{
             const temp = [];
@@ -56,7 +59,7 @@ const ItemTablica = ({id, navigation, name, category, advancement, location, tim
             });
             setCanJoin(!temp.includes(docs[0].login));
         });
-    }, []);
+    }, [users]);
     return (
         <>
         <View style={style.main}>
@@ -124,7 +127,3 @@ const style = StyleSheet.create({
 });
 
 export default ItemTablica
-
-/*
-    - 
-*/

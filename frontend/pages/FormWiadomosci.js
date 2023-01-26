@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { View, Text, TouchableWithoutFeedback, FlatList, StyleSheet, TextInput } from 'react-native'
 import Datastore from 'react-native-local-mongodb'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import NetInfo from '@react-native-community/netinfo'
 import { useIsFocused } from '@react-navigation/native'
 import DocumentPicker from 'react-native-document-picker'
 import CONFIG from '../components/Config'
@@ -52,7 +53,7 @@ import SettingsIco from '../svg/SettingsIco'
     2. Funkcja potrzebuje danych, od których zależy jej działanie
 */
 
-const FormWiadomosciBottomBar = ({ target, id, setWiadomosci }) =>{
+const FormWiadomosciBottomBar = ({ target, id, setWiadomosci, messageList }) =>{
     const [text, setText] = useState("");
     const [error, setError] = useState(false);
     const changeText = val =>{
@@ -68,7 +69,7 @@ const FormWiadomosciBottomBar = ({ target, id, setWiadomosci }) =>{
             login: (await db.findAsync({}))[0].login,
             password: (await db.findAsync({}))[0].password
         }
-        const messages = (await(await fetch(CONFIG.HOST_ADRES + "message/list", { headers: defaultHeaders, method: "POST", body: JSON.stringify({ login: credentials.login, password: credentials.password, type: target, target: id }) })).json()).data;
+        const messages = (await(await fetch(CONFIG.HOST_ADRES + "message/list", { headers: defaultHeaders, method: "POST", body: JSON.stringify({ login: credentials.login, password: credentials.password, type: target, target: id, pageSize: 25, pageNumber: (Math.ceil(messageList.length / 25) + 1) }) })).json()).data;
         const data = [];
         for(let i = 0; i < messages.length; i++) {
             data.push({
@@ -183,7 +184,8 @@ const FormWiadomosciBottomBar = ({ target, id, setWiadomosci }) =>{
 }
 
 const FormWiadomosci = ({ route, navigation }) =>{
-    const scrollViewRef = useRef();
+    const listRef = useRef(null);
+    const [isLoading, setLoading] = useState(false);
     const [wiadomosci, setWiadomosci] = useState({
         login: "",
         target: "",
@@ -212,7 +214,7 @@ const FormWiadomosci = ({ route, navigation }) =>{
             login: (await db.findAsync({}))[0].login,
             password: (await db.findAsync({}))[0].password
         }
-        const messages = (await(await fetch(CONFIG.HOST_ADRES + "message/list", { headers: defaultHeaders, method: "POST", body: JSON.stringify({ login: credentials.login, password: credentials.password, type: route.params.target, target: route.params.id }) })).json()).data;
+        const messages = (await(await fetch(CONFIG.HOST_ADRES + "message/list", { headers: defaultHeaders, method: "POST", body: JSON.stringify({ login: credentials.login, password: credentials.password, type: route.params.target, target: route.params.id, pageSize: 25, pageNumber: (Math.ceil(wiadomosci.data.length / 25) + 1) }) })).json()).data;
         const data = [];
         for(let i = 0; i < messages.length; i++) {
             data.push({
@@ -233,7 +235,20 @@ const FormWiadomosci = ({ route, navigation }) =>{
     }
     const isFocused = useIsFocused();
     useEffect(()=>{
-        if (isFocused) getMessages();
+        NetInfo.addEventListener((state) => {
+            if (isFocused) {
+                const offline = !state.isConnected;
+                if (offline) {
+                    setError("Brak internetu");
+                } else {
+                    setError(false);
+                }
+            }
+        });
+        if (isFocused) {
+            listRef.current.scrollToOffset({ offset: 0, animated: false });
+            getMessages();
+        }
     }, [isFocused]);
   return (
     <View style={style.main}>
@@ -252,10 +267,19 @@ const FormWiadomosci = ({ route, navigation }) =>{
             <Text style={style.headerText}>{route.params.name}</Text>
         </View>
         <FlatList style={style.scrollView}
+            ref={listRef}
             data={wiadomosci.data.reverse()}
             renderItem={({item})=><ItemMessage id={item.id} sender={item.nick} login={wiadomosci.login} content={item.content} isImage={item.isImage} avatar={item.avatar} />}
+            onEndReachedThreshold={5}
+            onEndReached={getMessages}
             inverted
         />
+        {
+            isLoading &&
+                <View style={style.dataLoadingContainer}>
+                    <Text style={style.dataLoadingText}>Ładowanie danych</Text>
+                </View>
+        }
         {/*
         <ScrollView style={style.scrollView} ref={scrollViewRef}
       onContentSizeChange={() => scrollViewRef.current.scrollToEnd({ animated: false })}>
@@ -285,7 +309,7 @@ const FormWiadomosci = ({ route, navigation }) =>{
         {
             (error != "") && <PopUpServer message={error} closeHandler={()=>{setError("");}} />
         }
-        <FormWiadomosciBottomBar target={route.params.target} id={route.params.id} setWiadomosci={setWiadomosci} />
+        <FormWiadomosciBottomBar target={route.params.target} id={route.params.id} setWiadomosci={setWiadomosci} messageList={wiadomosci.data} />
     </View>
   )
 }
@@ -346,6 +370,14 @@ const style = StyleSheet.create({
         paddingRight: 5,
         justifyContent: "center",
         alignItems: "center"
+    },
+    dataLoadingContainer: {
+        marginBottom: 20
+    },
+    dataLoadingText: {
+        color: "white",
+        fontSize: 15,
+        textDecorationLine: "underline"
     }
 });
 

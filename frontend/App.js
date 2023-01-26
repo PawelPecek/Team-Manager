@@ -16,7 +16,7 @@ import ItemTablicaPage from './pages/ItemTablicaPage';
 import FormWiadomosci from './pages/FormWiadomosci';
 import FormGroup from './pages/FormGroup';
 import FormMeczRemoveUser from './pages/FormMeczRemoveUser';
-import UserList from './pages/UserList';
+import SelectList from './pages/SelectList';
 
 const Stack = createNativeStackNavigator();
 
@@ -39,7 +39,7 @@ const App = () => {
             <Stack.Screen options={{headerShown: false}} name="FormWiadomosci" component={FormWiadomosci} />
             <Stack.Screen options={{headerShown: false}} name="FormGroup" component={FormGroup} />
             <Stack.Screen options={{headerShown: false}} name="FormMeczRemoveUser" component={FormMeczRemoveUser} />
-            <Stack.Screen options={{headerShown: false}} name="UserList" component={UserList} />
+            <Stack.Screen options={{headerShown: false}} name="SelectList" component={SelectList} />
           </Stack.Navigator>
         </NavigationContainer>
   )

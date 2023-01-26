@@ -3,6 +3,7 @@ import { View, Text, TouchableWithoutFeedback, TextInput, StyleSheet, ScrollView
 import Datastore from 'react-native-local-mongodb'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import PopUpServer from '../components/PopUpServer'
+import NetInfo from '@react-native-community/netinfo'
 import { useIsFocused } from '@react-navigation/native'
 import CONFIG from '../components/Config'
 import ReturnArrowIco from '../svg/ReturnArrowIco'
@@ -172,13 +173,23 @@ const FormGroup = ({ route, navigation }) =>{
         });
     }
     const addUser = ()=>{
-        navigation.navigate("UserList", { id: route.params.id, createOrModify: route.params.createOrModify });
+        navigation.navigate("SelectList", { id: route.params.id, name: route.params.name, createOrModify: route.params.createOrModify, source: "FormGroup" });
     }
     const cancel = ()=>{
         navigation.navigate("Wiadomosci", { target: "group" });
     }
     const isFocused = useIsFocused();
     useEffect(()=>{
+        NetInfo.addEventListener((state) => {
+            if (isFocused) {
+                const offline = !state.isConnected;
+                if (offline) {
+                    setError("Brak internetu");
+                } else {
+                    setError(false);
+                }
+            }
+        });
         if (isFocused && ('createOrModify' in route.params) && (route.params.createOrModify == 'modify')) {
             const db = new Datastore({ filename: 'user', storage: AsyncStorage, autoload: true });
             db.find({}, (err, docs) =>{
@@ -216,6 +227,7 @@ const FormGroup = ({ route, navigation }) =>{
                 });
             });
         }
+        console.log(route.params);
     }, [isFocused]);
   return (
     <View style={style.main}>
